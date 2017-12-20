@@ -8,11 +8,20 @@ from __future__ import print_function
 import csv
 import argparse
 import os
+import sys
 import time
 import dropbox
 
 with open('oauth.conf', 'rb') as oauth:
     DBX = dropbox.Dropbox(oauth.read())
+
+
+def exists(path):
+    try:
+        DBX.files_get_metadata(path)
+        return True
+    except:
+        return False
 
 
 def main(path, dest, interval, sleep):
@@ -21,32 +30,49 @@ def main(path, dest, interval, sleep):
         reader = csv.DictReader(csvfile, delimiter='\t')
         for row in reader:
             title = row['Name'] + ' (' + row['Region'] + ')'
-            filename = title + ' (' + row['Title ID'] + ')'
+            filename = row['Content ID']
             header = '\t'.join(reader.fieldnames)
             bak = ''
             for field in reader.fieldnames:
                 bak += row[field] + '\t'
-            print('Downloading ' + title + '...')
-            if not row['PKG direct link'] == 'MISSING' or not row['PKG direct link'] == '':
-                aid = DBX.files_save_url(
-                    dest + filename + '.pkg',
-                    row['PKG direct link']
-                )
-                if 'zRIF' in row and not row['zRIF'] == 'MISSING':
-                    DBX.files_upload(
-                        row['zRIF'],
-                        dest + filename + '.zrif'
+
+            skipped = True
+            changed = False
+            if not row['PKG direct link'] == 'MISSING' or not row['PKG direct link'] == '' or not row['PKG direct link'] == 'CART ONLY':
+                if not exists(dest + filename + '.pkg'):
+                    aid = DBX.files_save_url(
+                        dest + filename + '.pkg',
+                        row['PKG direct link']
                     )
-                DBX.files_upload(
-                    header + '\n' + bak,
-                    dest + filename + '.tsv'
-                )
-                while not DBX.files_save_url_check_job_status(aid.get_async_job_id()).is_complete():
-                    time.sleep(interval)
-                print('Finished Downloading ' + title)
-                print('File Located at ' + dest + filename + '.pkg')
-                print('Sleeping before next download...')
-                time.sleep(sleep)
+                    skipped = False
+                    changed = True
+                if not exists(dest + filename + '.zrif'):
+                    if 'zRIF' in row and not row['zRIF'] == 'MISSING':
+                        DBX.files_upload(
+                            row['zRIF'],
+                            dest + filename + '.zrif'
+                        )
+                        changed = True
+                if changed:
+                    DBX.files_upload(
+                        header + '\n' + bak,
+                        dest + filename + '.tsv'
+                    )
+                if skipped:
+                    print('Skipped Downloading: ' + title)
+                else:
+                    print('Downloading ' + title + '...')
+                    kickme = 0
+                    while not exists(dest + filename + '.pkg') and not DBX.files_save_url_check_job_status(aid.get_async_job_id()).is_complete():
+                        if kickme == 30:
+                            os.execv(sys.executable, ['python'] + sys.argv)
+                            exit()
+                        kickme = kickme + 1
+                        time.sleep(interval)
+                    print('Finished Downloading ' + title)
+                    print('File Located at ' + dest + filename + '.pkg')
+                    print('Sleeping before next download...')
+                    time.sleep(sleep)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='TSV Backup Utility')
