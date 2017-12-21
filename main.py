@@ -17,6 +17,7 @@ with open('oauth.conf', 'rb') as oauth:
 
 
 def exists(path):
+    """Check to see if there is a file at the given path on Dropbox"""
     try:
         DBX.files_get_metadata(path)
         return True
@@ -24,55 +25,38 @@ def exists(path):
         return False
 
 
-def main(path, dest, interval, sleep):
+def main(path, dest, interval, sleep, kickme):
     """Main Method"""
     with open(path, 'rb') as csvfile:
         reader = csv.DictReader(csvfile, delimiter='\t')
         for row in reader:
             title = row['Name'] + ' (' + row['Region'] + ')'
             filename = row['Content ID']
-            header = '\t'.join(reader.fieldnames)
-            bak = ''
-            for field in reader.fieldnames:
-                bak += row[field] + '\t'
 
             skipped = True
-            changed = False
-            if not row['PKG direct link'] == 'MISSING' or not row['PKG direct link'] == '' or not row['PKG direct link'] == 'CART ONLY':
+            if row['PKG direct link'] != 'MISSING' and row['PKG direct link'] != '' and row['PKG direct link'] != 'CART ONLY':
                 if not exists(dest + filename + '.pkg'):
                     aid = DBX.files_save_url(
                         dest + filename + '.pkg',
                         row['PKG direct link']
                     )
                     skipped = False
-                    changed = True
-                if not exists(dest + filename + '.zrif'):
-                    if 'zRIF' in row and not row['zRIF'] == 'MISSING':
-                        DBX.files_upload(
-                            row['zRIF'],
-                            dest + filename + '.zrif'
-                        )
-                        changed = True
-                if changed:
-                    DBX.files_upload(
-                        header + '\n' + bak,
-                        dest + filename + '.tsv'
-                    )
-                if skipped:
-                    print('Skipped Downloading: ' + title)
-                else:
-                    print('Downloading ' + title + '...')
-                    kickme = 0
-                    while not exists(dest + filename + '.pkg') and not DBX.files_save_url_check_job_status(aid.get_async_job_id()).is_complete():
-                        if kickme == 30:
-                            os.execv(sys.executable, ['python'] + sys.argv)
-                            exit()
-                        kickme = kickme + 1
-                        time.sleep(interval)
-                    print('Finished Downloading ' + title)
-                    print('File Located at ' + dest + filename + '.pkg')
-                    print('Sleeping before next download...')
-                    time.sleep(sleep)
+            if skipped:
+                print('Skipped Downloading: ' + title)
+            else:
+                print('Downloading ' + title + '...')
+                kicktick = 0
+                while not exists(dest + filename + '.pkg') and not DBX.files_save_url_check_job_status(aid.get_async_job_id()).is_complete():
+                    if kicktick >= kickme:
+                        print(os.linesep + '\x1b[1;31mKicking Script...\x1b[0m')
+                        os.execv(sys.executable, ['python'] + sys.argv)
+                        exit()
+                    kicktick = kicktick + 1
+                    time.sleep(interval)
+                print('Finished Downloading ' + title)
+                print('File Located at ' + dest + filename + '.pkg')
+                print('Sleeping before next download...')
+                time.sleep(sleep)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='TSV Backup Utility')
@@ -88,6 +72,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '--sleep', dest='sleep', action='store', type=int, default='300', required=False,
         help='Number of seconds to wait before starting a new download')
+    parser.add_argument(
+        '--kick', dest='kick', action='store', type=int, default='60', required=False,
+        help='Number of intervals to wait before kicking the script')
 
     args = parser.parse_args()
 
@@ -95,4 +82,4 @@ if __name__ == '__main__':
         print('Could not locate TSV file')
         exit()
 
-    main(args.path, args.dest, int(args.interval), int(args.sleep))
+    main(args.path, args.dest, int(args.interval), int(args.sleep), int(args.kick))

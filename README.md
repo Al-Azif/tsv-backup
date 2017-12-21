@@ -25,7 +25,6 @@ Be sure to report any bugs, include as much information as possible.
 - This isn't really ready for others to use
 - The script will send the link to download then wait for the download to complete before starting the next
 - There is a sleep timer in between checking completion of a file download (1 Minute) and between finishing a file and downloading the next (5 Minutes)
-- The script will save a PKG file, a zRIF file, and a TSV file (It's a backup of the line used to download it)
 - Skips file if it already exists on Dropbox
 - There is basically no error checking
 
