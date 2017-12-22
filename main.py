@@ -55,7 +55,7 @@ def kickme(now=False):
     Set now to True to kick now reguardless of tick/max
     """
     if now or KICK_TICK >= KICK_MAX:
-        print('\033[1m\033[91mKicking Script\033[0m...\033[0m')
+        print('\033[1m\033[91mKicking Script...\033[0m')
         os.execv(sys.executable, ['python'] + sys.argv)
         exit()
 
@@ -63,8 +63,8 @@ def kickme(now=False):
 def db_delete_duplicates(dest):
     for entry in DBX.files_list_folder(dest).entries:
         if '(' in entry.name:
-            print('\033[1mDeleting Duplicate:\033[0m \033[91m' +
-                  entry.name + '\033[0m...')
+            print('\033[1mDeleting Duplicate:\033[0m       \033[91m' +
+                  entry.name + '\033[0m')
             DBX.files_delete_v2(os.path.join(dest, entry.name))
 
 
@@ -93,23 +93,23 @@ def main(path, dest, interval, sleep):
                 skipped = True
 
             if skipped and valid:
-                print('\033[1mSkipped Downloading:\033[0m \033[94m' +
+                print('\033[1mSkipped Downloading:\033[0m  \033[94m' +
                       title + '\033[0m')
 
             if skipped and not valid and not demo:
-                print('\033[1mMissing PKG Link:\033[0m \033[91m' +
+                print('\033[1mMissing PKG Link:\033[0m     \033[91m' +
                       title + '\033[0m')
 
             if demo:
-                print('\033[1mSkipped Demo:\033[0m \033[91m' +
+                print('\033[1mSkipped Demo:\033[0m         \033[91m' +
                       title + '\033[0m')
 
             if not skipped:
-                print('\033[1mDownloading:\033[0m \033[93m' +
-                      title + '\033[0m...')
+                print('\033[1mDownloading:\033[0m          \033[93m' +
+                      title + '\033[0m')
                 while not db_exists(file_path) and not db_async_complete(aid):
                     if db_async_failed(aid):
-                        print('\033[1m\033[91mSave URL failed!\033[0m\033[0m')
+                        print('\033[1m\033[91mSave URL failed!\033[0m')
                         kickme(now=True)
                     kickme()
                     KICK_TICK = KICK_TICK + 1
