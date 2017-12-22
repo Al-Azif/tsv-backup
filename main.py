@@ -25,6 +25,11 @@ def db_exists(path):
         return True
     except dropbox.exceptions.ApiError:
         return False
+    except Exception:
+        # I get some wierd error here every once and a while releated to
+        # Dropbox's files_get_metadata() error is a
+        # urllib3.exceptions.ProtocolError exception
+        return False
 
 
 def db_async_complete(async_id):
@@ -93,6 +98,7 @@ def main(path, dest, interval, sleep):
                     KICK_TICK = KICK_TICK + 1
                     time.sleep(interval)
                 print('\033[1mFinished Downloading:\033[0m \033[92m' + title + '\033[0m')
+                db_delete_duplicates(os.path.join(dest, ''))
                 print('Sleeping before next download...')
                 time.sleep(sleep)
 
@@ -129,4 +135,3 @@ if __name__ == '__main__':
     KICK_TICK = 0
 
     main(args.path, args.dest, args.interval, args.sleep)
-    db_delete_duplicates(args.dest)
