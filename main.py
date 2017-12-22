@@ -84,7 +84,7 @@ def main(path, dest, interval, sleep):
             else:
                 skipped = True
 
-            if skipped:
+            if skipped and valid:
                 print('\033[1mSkipped Downloading:\033[0m \033[92m' +
                       title + '\033[0m')
 
