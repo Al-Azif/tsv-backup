@@ -5,6 +5,7 @@
 """
 
 from __future__ import print_function
+
 import argparse
 import csv
 import os
@@ -31,6 +32,11 @@ def db_exists(path):
         return True
     except dropbox.exceptions.ApiError:
         return False
+    except dropbox.exceptions.RateLimitError:
+        print('\033[1m\033[91mHit Dropbox rate limit, sleeping...\033[0m')
+        # Need to figure out how long it takes their rate limiting to reset
+        time.sleep(600)
+        return False
     except Exception:
         # I get some wierd error here every once and a while releated to
         # Dropbox's files_get_metadata()
@@ -49,18 +55,15 @@ def db_async_failed(async_id):
     return DBX.files_save_url_check_job_status(async_id).is_failed()
 
 
-def kickme(now=False):
-    """If KICK_TICK >= KICK_MAX resart the script
-
-    Set now to True to kick now reguardless of tick/max
-    """
-    if now or KICK_TICK >= KICK_MAX:
-        print('\033[1m\033[91mKicking Script...\033[0m')
-        os.execv(sys.executable, ['python'] + sys.argv)
-        exit()
+def kickme():
+    """Resart the script with the same args"""
+    print('\033[1m\033[91mKicking Script...\033[0m')
+    os.execv(sys.executable, ['python'] + sys.argv)
+    exit()
 
 
 def db_delete_duplicates(dest):
+    """Delete duplicate files in the destination folder"""
     for entry in DBX.files_list_folder(dest).entries:
         if '(' in entry.name:
             print('\033[1mDeleting Duplicate:\033[0m       \033[91m' +
@@ -68,10 +71,8 @@ def db_delete_duplicates(dest):
             DBX.files_delete_v2(os.path.join(dest, entry.name))
 
 
-def main(path, dest, interval, sleep):
+def main(path, dest, sleep, kick):
     """Main Method"""
-    global KICK_TICK
-
     with open(path, 'rb') as csvfile:
         reader = csv.DictReader(csvfile, delimiter='\t')
         for row in reader:
@@ -107,13 +108,13 @@ def main(path, dest, interval, sleep):
             if not skipped:
                 print('\033[1mDownloading:\033[0m          \033[93m' +
                       title + '\033[0m')
-                while not db_exists(file_path) and not db_async_complete(aid):
+                kick = time.time() + 60 * kick
+                while not db_exists(file_path) or not db_async_complete(aid):
                     if db_async_failed(aid):
                         print('\033[1m\033[91mSave URL failed!\033[0m')
-                        kickme(now=True)
-                    kickme()
-                    KICK_TICK += 1
-                    time.sleep(interval)
+                        kickme()
+                    if time.time() >= kick:
+                        kickme()
                 print('\033[1mFinished Downloading:\033[0m \033[92m' +
                       title + '\033[0m')
                 db_delete_duplicates(os.path.join(dest, ''))
@@ -132,17 +133,13 @@ if __name__ == '__main__':
         default='/tsv-backup/', required=False,
         help='Destination path to save files to on Dropbox')
     parser.add_argument(
-        '--interval', dest='interval', action='store', type=int,
-        default='60', required=False,
-        help='Number of seconds to wait before checking download status')
-    parser.add_argument(
         '--sleep', dest='sleep', action='store', type=int,
         default='300', required=False,
         help='Number of seconds to wait before starting a new download')
     parser.add_argument(
         '--kick', dest='kick', action='store', type=int,
         default='60', required=False,
-        help='Number of intervals to wait before kicking the script')
+        help='Number minutes to wait before kicking the script')
 
     args = parser.parse_args()
 
@@ -150,8 +147,5 @@ if __name__ == '__main__':
         print('Could not locate TSV file')
         exit()
 
-    KICK_MAX = args.kick
-    KICK_TICK = 0
-
-    main(args.path, args.dest, args.interval, args.sleep)
+    main(args.path, args.dest, args.sleep, args.kick)
     db_delete_duplicates(os.path.join(args.dest, ''))
