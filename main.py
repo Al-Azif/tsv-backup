@@ -112,7 +112,7 @@ def main(path, dest, interval, sleep):
                         print('\033[1m\033[91mSave URL failed!\033[0m')
                         kickme(now=True)
                     kickme()
-                    KICK_TICK = KICK_TICK + 1
+                    KICK_TICK += 1
                     time.sleep(interval)
                 print('\033[1mFinished Downloading:\033[0m \033[92m' +
                       title + '\033[0m')
