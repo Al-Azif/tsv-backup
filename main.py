@@ -72,9 +72,11 @@ def main(path, dest, interval, sleep):
             title = row['Name'] + ' (' + row['Region'] + ')'
             file_path = os.path.join(dest, row['Content ID'] + '.pkg')
 
+            demo = bool('(DEMO/TRIAL)' in row['Name'])
             valid = bool(row['PKG direct link'] != 'MISSING'
                          and row['PKG direct link'] != 'CART ONLY'
                          and row['PKG direct link'] != ''
+                         and not demo
                          )
 
             if valid and not db_exists(file_path):
@@ -88,8 +90,12 @@ def main(path, dest, interval, sleep):
                 print('\033[1mSkipped Downloading:\033[0m \033[92m' +
                       title + '\033[0m')
 
-            if skipped and not valid:
-                print('\033[1mSkipped Downloading:\033[0m \033[91m' +
+            if skipped and not valid and not demo:
+                print('\033[1mMissing PKG Link:\033[0m \033[91m' +
+                      title + '\033[0m')
+
+            if demo:
+                print('\033[1mSkipped Demo:\033[0m \033[91m' +
                       title + '\033[0m')
 
             if not skipped:
