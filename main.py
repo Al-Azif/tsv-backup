@@ -27,8 +27,9 @@ def db_exists(path):
         return False
     except Exception:
         # I get some wierd error here every once and a while releated to
-        # Dropbox's files_get_metadata() error is a
-        # urllib3.exceptions.ProtocolError exception
+        # Dropbox's files_get_metadata()
+        #
+        # Error is a urllib3.exceptions.ProtocolError exception
         return False
 
 
@@ -56,7 +57,8 @@ def kickme(now=False):
 def db_delete_duplicates(dest):
     for entry in DBX.files_list_folder(dest).entries:
         if '(' in entry.name:
-            print('\033[1mDeleting Duplicate:\033[0m \033[91m' + entry.name + '\033[0m...')
+            print('\033[1mDeleting Duplicate:\033[0m \033[91m' +
+                  entry.name + '\033[0m...')
             DBX.files_delete_v2(os.path.join(dest, entry.name))
 
 
@@ -77,27 +79,31 @@ def main(path, dest, interval, sleep):
 
             if valid and not db_exists(file_path):
                 aid = DBX.files_save_url(file_path, row['PKG direct link'])
-                async_id = aid.get_async_job_id()
+                aid = aid.get_async_job_id()
                 skipped = False
             else:
                 skipped = True
 
             if skipped:
-                print('\033[1mSkipped Downloading:\033[0m \033[92m' + title + '\033[0m')
+                print('\033[1mSkipped Downloading:\033[0m \033[92m' +
+                      title + '\033[0m')
 
             if skipped and not valid:
-                print('\033[1mSkipped Downloading:\033[0m \033[91m' + title + '\033[0m')
+                print('\033[1mSkipped Downloading:\033[0m \033[91m' +
+                      title + '\033[0m')
 
             if not skipped:
-                print('\033[1mDownloading:\033[0m \033[93m' + title + '\033[0m...')
-                while not db_exists(file_path) and not db_async_complete(async_id):
-                    if db_async_failed(async_id):
-                        print('\033[1m\033[91mDropbox save URL failed!\033[0m\033[0m')
+                print('\033[1mDownloading:\033[0m \033[93m' +
+                      title + '\033[0m...')
+                while not db_exists(file_path) and not db_async_complete(aid):
+                    if db_async_failed(aid):
+                        print('\033[1m\033[91mSave URL failed!\033[0m\033[0m')
                         kickme(now=True)
                     kickme()
                     KICK_TICK = KICK_TICK + 1
                     time.sleep(interval)
-                print('\033[1mFinished Downloading:\033[0m \033[92m' + title + '\033[0m')
+                print('\033[1mFinished Downloading:\033[0m \033[92m' +
+                      title + '\033[0m')
                 db_delete_duplicates(os.path.join(dest, ''))
                 print('Sleeping before next download...')
                 time.sleep(sleep)
