@@ -18,6 +18,12 @@ with open('oauth.conf', 'rb') as oauth:
     DBX = dropbox.Dropbox(oauth.read())
 
 
+def clear_line():
+    """Clear last printed line"""
+    sys.stdout.write('\x1b[1A')
+    sys.stdout.write('\x1b[2K')
+
+
 def db_exists(path):
     """Check to see if there is a file at the given path on Dropbox"""
     try:
@@ -87,7 +93,7 @@ def main(path, dest, interval, sleep):
                 skipped = True
 
             if skipped and valid:
-                print('\033[1mSkipped Downloading:\033[0m \033[92m' +
+                print('\033[1mSkipped Downloading:\033[0m \033[94m' +
                       title + '\033[0m')
 
             if skipped and not valid and not demo:
@@ -113,6 +119,7 @@ def main(path, dest, interval, sleep):
                 db_delete_duplicates(os.path.join(dest, ''))
                 print('Sleeping before next download...')
                 time.sleep(sleep)
+                clear_line()
 
 
 if __name__ == '__main__':
@@ -147,3 +154,4 @@ if __name__ == '__main__':
     KICK_TICK = 0
 
     main(args.path, args.dest, args.interval, args.sleep)
+    db_delete_duplicates(os.path.join(args.dest, ''))
