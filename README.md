@@ -2,7 +2,8 @@
 This is a script that will iterate though a TSV file and download each entry to your Dropbox account directly without downloading them onto your computer first.
 
 ## Requirements
-- [Python 2](https://www.python.org/downloads/) (Tested on 2.7.14)
+- [Python 3](https://www.python.org/downloads/) (Tested on 3.6.4)
+    - Should work with Python 2 (Not going to put a lot of effort into supporting it)
 - This should run on Windows, OSX, and Linux
 
 ## How to download
@@ -24,7 +25,7 @@ Be sure to report any bugs, include as much information as possible.
 ## Other Notes
 - This isn't really ready for others to use
 - The script will send the link to download then wait for the download to complete before starting the next
-- There is a sleep timer in between checking completion of a file download (1 Minute) and between finishing a file and downloading the next (5 Minutes)
+- There is a sleep timer in between finishing a file and downloading the next (10 Minutes) which can be modified with the `--sleep` arg
 - Skips file if it already exists on Dropbox
 - There is basically no error checking
 

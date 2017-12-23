@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# encoding: utf-8
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Backup the contents of a TSV file directly to Dropbox
    Source: https://github.com/Al-Azif/tsv-backup
 """
@@ -8,6 +8,7 @@ from __future__ import print_function
 
 import argparse
 import csv
+import codecs
 import os
 import sys
 import time
@@ -15,7 +16,7 @@ import time
 import dropbox
 
 
-with open('oauth.conf', 'rb') as oauth:
+with codecs.open('oauth.conf', 'r', encoding='utf-8') as oauth:
     DBX = dropbox.Dropbox(oauth.read())
 
 
@@ -66,14 +67,14 @@ def db_delete_duplicates(dest):
     """Delete duplicate files in the destination folder"""
     for entry in DBX.files_list_folder(dest).entries:
         if '(' in entry.name:
-            print('\033[1mDeleting Duplicate:\033[0m       \033[91m' +
+            print('\033[1mDeleting Duplicate:\033[0m   \033[91m' +
                   entry.name + '\033[0m')
             DBX.files_delete_v2(os.path.join(dest, entry.name))
 
 
 def main(path, dest, sleep, kick):
     """Main Method"""
-    with open(path, 'rb') as csvfile:
+    with codecs.open(path, 'r', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile, delimiter='\t')
         for row in reader:
             title = row['Name'] + ' (' + row['Region'] + ')'
@@ -83,8 +84,7 @@ def main(path, dest, sleep, kick):
             valid = bool(row['PKG direct link'] != 'MISSING'
                          and row['PKG direct link'] != 'CART ONLY'
                          and row['PKG direct link'] != ''
-                         and not demo
-                         )
+                         and not demo)
 
             if valid and not db_exists(file_path):
                 aid = DBX.files_save_url(file_path, row['PKG direct link'])
@@ -134,8 +134,8 @@ if __name__ == '__main__':
         help='Destination path to save files to on Dropbox')
     parser.add_argument(
         '--sleep', dest='sleep', action='store', type=int,
-        default='300', required=False,
-        help='Number of seconds to wait before starting a new download')
+        default='10', required=False,
+        help='Number of minutes to wait before starting a new download')
     parser.add_argument(
         '--kick', dest='kick', action='store', type=int,
         default='60', required=False,
@@ -147,5 +147,5 @@ if __name__ == '__main__':
         print('Could not locate TSV file')
         exit()
 
-    main(args.path, args.dest, args.sleep, args.kick)
+    main(args.path, args.dest, args.sleep * 60, args.kick)
     db_delete_duplicates(os.path.join(args.dest, ''))
