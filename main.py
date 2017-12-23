@@ -59,7 +59,7 @@ def db_async_failed(async_id):
 def kickme():
     """Resart the script with the same args"""
     print('\033[1m\033[91mKicking Script...\033[0m')
-    os.execv(sys.executable, ['python'] + sys.argv)
+    os.execv(sys.executable, [sys.executable] + sys.argv)
     exit()
 
 

@@ -4,6 +4,7 @@ This is a script that will iterate though a TSV file and download each entry to 
 ## Requirements
 - [Python 3](https://www.python.org/downloads/) (Tested on 3.6.4)
     - Should work with Python 2 (Not going to put a lot of effort into supporting it)
+    - Currently non-ASCII characters will cause this script to fail in Python 2
 - This should run on Windows, OSX, and Linux
 
 ## How to download
