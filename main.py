@@ -9,10 +9,13 @@ from __future__ import print_function
 import argparse
 import csv
 import codecs
+from io import StringIO
 import os
 import sys
 import time
+import urllib3
 
+import certifi
 import dropbox
 
 
@@ -38,11 +41,7 @@ def db_exists(path):
         # Need to figure out how long it takes their rate limiting to reset
         time.sleep(600)
         return False
-    except Exception:
-        # I get some wierd error here every once and a while releated to
-        # Dropbox's files_get_metadata()
-        #
-        # Error is a urllib3.exceptions.ProtocolError exception
+    except urllib3.exceptions.ProtocolError:
         return False
 
 
@@ -72,62 +71,65 @@ def db_delete_duplicates(dest):
             DBX.files_delete_v2(os.path.join(dest, entry.name))
 
 
-def main(path, dest, sleep, kick):
+def download(data, dest, sleep, kick):
+    """Where the magic happens"""
+    reader = csv.DictReader(StringIO(data), delimiter='\t')
+    for row in reader:
+        title = row['Name'] + ' (' + row['Region'] + ')'
+        file_path = os.path.join(dest, row['Content ID'] + '.pkg')
+
+        demo = bool('(DEMO/TRIAL)' in row['Name'])
+        valid = bool(row['PKG direct link'] != 'MISSING'
+                     and row['PKG direct link'] != 'CART ONLY'
+                     and row['PKG direct link'] != ''
+                     and not demo)
+
+        if valid and not db_exists(file_path):
+            aid = DBX.files_save_url(file_path, row['PKG direct link'])
+            aid = aid.get_async_job_id()
+            skipped = False
+        else:
+            skipped = True
+
+        if skipped and valid:
+            print('\033[1mSkipped Downloading:\033[0m  \033[94m' +
+                  title + '\033[0m')
+
+        if skipped and not valid and not demo:
+            print('\033[1mMissing PKG Link:\033[0m     \033[91m' +
+                  title + '\033[0m')
+
+        if demo:
+            print('\033[1mSkipped Demo:\033[0m         \033[91m' +
+                  title + '\033[0m')
+
+        if not skipped:
+            print('\033[1mDownloading:\033[0m          \033[93m' +
+                  title + '\033[0m')
+            kick = time.time() + kick
+            while not db_exists(file_path) or not db_async_complete(aid):
+                if db_async_failed(aid):
+                    print('\033[1m\033[91mSave URL failed!\033[0m')
+                    kickme()
+                if time.time() >= kick:
+                    kickme()
+            print('\033[1mFinished Downloading:\033[0m \033[92m' +
+                  title + '\033[0m')
+            db_delete_duplicates(os.path.join(dest, ''))
+            print('Sleeping before next download...')
+            time.sleep(sleep)
+            clear_line()
+
+
+def main():
     """Main Method"""
-    with codecs.open(path, 'r', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile, delimiter='\t')
-        for row in reader:
-            title = row['Name'] + ' (' + row['Region'] + ')'
-            file_path = os.path.join(dest, row['Content ID'] + '.pkg')
-
-            demo = bool('(DEMO/TRIAL)' in row['Name'])
-            valid = bool(row['PKG direct link'] != 'MISSING'
-                         and row['PKG direct link'] != 'CART ONLY'
-                         and row['PKG direct link'] != ''
-                         and not demo)
-
-            if valid and not db_exists(file_path):
-                aid = DBX.files_save_url(file_path, row['PKG direct link'])
-                aid = aid.get_async_job_id()
-                skipped = False
-            else:
-                skipped = True
-
-            if skipped and valid:
-                print('\033[1mSkipped Downloading:\033[0m  \033[94m' +
-                      title + '\033[0m')
-
-            if skipped and not valid and not demo:
-                print('\033[1mMissing PKG Link:\033[0m     \033[91m' +
-                      title + '\033[0m')
-
-            if demo:
-                print('\033[1mSkipped Demo:\033[0m         \033[91m' +
-                      title + '\033[0m')
-
-            if not skipped:
-                print('\033[1mDownloading:\033[0m          \033[93m' +
-                      title + '\033[0m')
-                kick = time.time() + 60 * kick
-                while not db_exists(file_path) or not db_async_complete(aid):
-                    if db_async_failed(aid):
-                        print('\033[1m\033[91mSave URL failed!\033[0m')
-                        kickme()
-                    if time.time() >= kick:
-                        kickme()
-                print('\033[1mFinished Downloading:\033[0m \033[92m' +
-                      title + '\033[0m')
-                db_delete_duplicates(os.path.join(dest, ''))
-                print('Sleeping before next download...')
-                time.sleep(sleep)
-                clear_line()
-
-
-if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='TSV Backup Utility')
     parser.add_argument(
-        '-c', dest='path', action='store', required=True,
+        '--file', dest='path', action='store', default='', required=False,
         help='Path to TSV File')
+    parser.add_argument(
+        '--npsn', action='store_true', required=False,
+        help='Run PSV_GAMES.tsv directly')
     parser.add_argument(
         '--destination', dest='dest', action='store',
         default='/tsv-backup/', required=False,
@@ -143,9 +145,33 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if not os.path.isfile(args.path):
+    if bool(not args.path and not args.npsn) or bool(args.path and args.npsn):
+        print('Please specify either a file or npsn')
+        exit()
+
+    if args.path and not os.path.isfile(args.path):
         print('Could not locate TSV file')
         exit()
 
-    main(args.path, args.dest, args.sleep * 60, args.kick)
+    if args.path:
+        with codecs.open(args.path, 'r', encoding='utf-8') as tsvfile:
+            data = tsvfile.read()
+    elif args.npsn:
+        http = urllib3.PoolManager(
+            cert_reqs='CERT_REQUIRED',
+            ca_certs=certifi.where())
+        response = http.request(
+            'GET',
+            'https://nopaystation.com/tsv/PSV_GAMES.tsv')
+        if response.status == 200:
+            data = response.data.decode('utf-8')
+        else:
+            print('Error retrieving NPSN data')
+            exit()
+
+    download(data, args.dest, args.sleep * 60, args.kick * 60)
     db_delete_duplicates(os.path.join(args.dest, ''))
+
+
+if __name__ == '__main__':
+    main()

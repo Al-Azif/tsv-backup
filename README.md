@@ -15,8 +15,8 @@ This is a script that will iterate though a TSV file and download each entry to 
 
 ## How to run
 1. Generate an OAuth token for your Dropbox account and place it in `oauth.conf`
-2. Install Dropbox's Python SDK `pip install dropbox`
-3. Run `python main.py -c file.tsv` from the command line
+2. Install Dropbox's Python SDK `pip3 install dropbox`
+3. Run `python3 main.py --file file.tsv` from the command line
 4. Wait...
 
 ## Contributing
